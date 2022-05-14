@@ -7,3 +7,6 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [Unreleased]
 
 - Initial release
+- Generate file [static header, body of index.html]
+- Ignore some CSS and JS files [array]
+- Inject CSS and JS into created file
