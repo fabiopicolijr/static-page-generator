@@ -11,7 +11,7 @@ function activate(context) {
 
   let disposable = vscode.commands.registerCommand(
     'static-page-generator.generateStaticPage',
-    async function () {
+    function () {
       const workspaceRootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
       const indexFile = `${workspaceRootPath}/src/index.html`;
       const staticBeforeFile = `${workspaceRootPath}/src/staticBefore.txt`;
@@ -19,9 +19,7 @@ function activate(context) {
       const bundleFile = `${distPath}/bundle.htm`;
       const tmpPath = `${distPath}/tmp`;
       const indexTmpFile = `${tmpPath}/index.html`;
-      const newLine = '\n';
-
-      console.log('LOG: before try');
+      //const newLine = '\n';
 
       try {
         console.log('LOG: try');
@@ -52,17 +50,14 @@ function activate(context) {
 
         // [OPCIONAL] GET STATIC CONTENT: before HTML TAG
         if (fs.existsSync(staticBeforeFile)) {
-          const staticBeforeData = fs.readFileSync(staticBeforeFile, {
-            encoding: 'utf8',
-            flag: 'r',
-          });
-
-          console.log('LOG: try 4');
+          //prettier-ignore
+          const staticBeforeData = fs.readFileSync(staticBeforeFile, {encoding: 'utf8', flag: 'r'});
 
           //prettier-ignore
-          fs.appendFile(bundleFile, staticBeforeData, (err) => {
-            if (err) throw err;
-          });
+          fs.appendFileSync(bundleFile, staticBeforeData + '\r\n');
+          // fs.appendFile(bundleFile, staticBeforeData, (err) => {
+          //   if (err) throw err;
+          // });
         }
 
         console.log('LOG: try END');
@@ -74,6 +69,76 @@ function activate(context) {
         vscode.window.showErrorMessage('ERROR: ' + err.message);
         return null;
       }
+
+      // FILTER HTML DATA
+      const indexTmpData = fs.readFileSync(indexTmpFile, 'utf-8').split('\r\n');
+
+      const ignoredLines = [
+        '.min.js',
+        '.min.css',
+        '.mask.js',
+        '<!DOCTYPE html>',
+        'crossorigin="anonymous"',
+        'prettier-ignore',
+      ];
+
+      const indexTmpDataFiltered = indexTmpData.filter(function (line) {
+        return !ignoredLines.some((el) => line.includes(el));
+      });
+
+      // IMPORT CSS AND JS FILES INTO HTML DATA
+      //prettier-ignore
+      let firstJsFile = true;
+
+      console.log('indexTmpDataFiltered.length', indexTmpDataFiltered.length);
+
+      // prettier-ignore
+      const indexTmpDataImported = indexTmpDataFiltered.map(function (line) {                
+
+        if (line.includes('stylesheet') && line.includes('.css')) {
+          const cssFile = `${workspaceRootPath}/src/${matchHref(line)}`;
+
+          if (!fs.existsSync(cssFile)) {
+            return `${cssFile} não encontrado`;
+          }
+
+          const cssData = fs.readFileSync(cssFile, {
+            encoding: 'utf8',
+            flag: 'r',
+          });
+
+          return `<style type="text/css">\r\n${cssData}</style>`;
+        }
+
+        if (line.includes('script') && line.includes('.js')) {
+          const jsFile = `${workspaceRootPath}/src/${matchSrc(line)}`;
+
+          if (!fs.existsSync(jsFile)) {
+            return `${jsFile} não encontrado`;
+          }
+
+          const jsData = fs.readFileSync(jsFile, {
+            encoding: 'utf8',
+            flag: 'r',
+          });
+
+          if (firstJsFile) {
+            firstJsFile = false;
+            return `<script type="text/javascript">\r\n${jsData}`;
+          }
+
+          return jsData;
+        }
+
+        return line.trim() === '</body>'
+          ? `</script>\r\n</body>`
+          : line;
+      });
+
+      // APPEND DATA
+      const indexTmpDataImportedString = indexTmpDataImported.join('\r\n');
+
+      fs.appendFileSync(bundleFile, indexTmpDataImportedString);
 
       console.log('LOG: File generated at dist/bundle.htm');
       vscode.window.showInformationMessage('File generated at dist/bundle.htm');
@@ -90,3 +155,17 @@ module.exports = {
   activate,
   deactivate,
 };
+
+function matchHref(string) {
+  return JSON.stringify(string.match(/href="([^\'\"]+)/g))
+    .replace(/[\]\="\)}[{(]/g, '')
+    .replace('href', '')
+    .replace('\\', '');
+}
+
+function matchSrc(string) {
+  return JSON.stringify(string.match(/src="([^\'\"]+)/g))
+    .replace(/[\]\="\)}[{(]/g, '')
+    .replace('src', '')
+    .replace('\\', '');
+}

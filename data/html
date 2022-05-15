@@ -1,0 +1,30 @@
+<html>
+
+<head>
+  <title>Criar acesso do zero</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!--WSS {css-path.i}  -->
+
+  <link rel="stylesheet" href="..\node_modules\bootstrap\dist\css\bootstrap.min.css">
+  <link rel="stylesheet" href="data/styles/default.css">
+  <link rel="stylesheet" href="styles/bbf.css">
+  <link rel="stylesheet" href="components/Grid/grid.css">
+  <link rel="stylesheet" href="data/styles/modals.css">
+  <link rel="stylesheet" href="styles/index.css">
+  <link rel="stylesheet" href="styles/media.css">
+  <link rel="stylesheet" href="styles/company.css">
+  <link rel="stylesheet" href="styles/tasks.css">
+
+  <script src="..\node_modules\jquery\dist\jquery.min.js" defer></script>
+  <script src="..\node_modules\jquery-mask-plugin\dist\jquery.mask.js" defer></script>
+
+  <!-- prettier-ignore -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+    crossorigin="anonymous"></script>
+  <script src="data/js/pollyfils.js" defer></script><!-- update-->
+  <script src="data/js/localhost.js" defer></script>
+  <script src="js/utils.js" defer></script><!-- update-->
+</head>
+
+</html>
