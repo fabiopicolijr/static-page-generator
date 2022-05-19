@@ -2,6 +2,25 @@ const vscode = require('vscode');
 const fs = require('fs');
 
 const workspaceRootPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
+const files = {
+  indexFile: `${workspaceRootPath}\\src\\index.html`,
+  projectPath: `${workspaceRootPath}\\spg`,
+  distPath: `${workspaceRootPath}\\dist`,
+  bundle: `${workspaceRootPath}\\dist\\bundle.htm`,
+  tmpPath: `${workspaceRootPath}\\spg\\tmp`,
+  indexTmpFile: `${workspaceRootPath}\\spg\\tmp\\index.html`,
+
+  imports: {
+    beforeHTMLTag: `${workspaceRootPath}\\spg\\static\\beforeHTMLTag.txt`,
+    beforeScriptTags: `${workspaceRootPath}\\spg\\static\\beforeScriptTags.txt`,
+    beforeHTMLCloseTag: `${workspaceRootPath}\\spg\\static\\beforeHTMLCloseTag.txt`,
+    afterHTMLCloseTag: `${workspaceRootPath}\\spg\\static\\afterHTMLCloseTag.txt`,
+
+    replace: {
+      metaCharset: `${workspaceRootPath}\\spg\\static\\replace\\metaCharset.txt`,
+    },
+  },
+};
 
 /**
  * @param {vscode.ExtensionContext} context
@@ -12,24 +31,14 @@ function activate(context) {
   );
 
   let disposable = vscode.commands.registerCommand(
-    'static-page-generator.generateStaticPage',
+    'static-page-generator.exportDevelopmentVersion',
     function () {
-      const files = {
-        indexFile: `${workspaceRootPath}\\src\\index.html`,
-        gspPath: `${workspaceRootPath}\\gsp`,
-        staticBegin: `${workspaceRootPath}\\gsp\\static\\indexBegin.html`,
-        staticEnd: `${workspaceRootPath}\\gsp\\static\\indexEnd.html`,
-        distPath: `${workspaceRootPath}\\gsp\\dist`,
-        bundle: `${workspaceRootPath}\\gsp\\dist\\bundle.htm`,
-        tmpPath: `${workspaceRootPath}\\gsp\\dist\\tmp`,
-        indexTmpFile: `${workspaceRootPath}\\gsp\\dist\\tmp\\index.html`,
-      };
-
       try {
-        createFiles(files);
-        appendDataFile(files.staticBegin, files.bundle);
-        importCssJs(filterBundle(files), files);
-        appendDataFile(files.staticEnd, files.bundle);
+        createProjectFiles();
+
+        appendFileToBundle(files.imports.beforeHTMLTag);
+        processIndexToBundle(filterIndex());
+        appendFileToBundle(files.imports.afterHTMLCloseTag);
 
         //prettier-ignore
         vscode.window.showInformationMessage(`File generated at ${files.bundle}`);
@@ -50,36 +59,36 @@ module.exports = {
   deactivate,
 };
 
-function createFiles(files) {
-  console.log('createFiles Begin');
+function createProjectFiles() {
+  console.log('createProjectFiles Begin');
 
   if (!fs.existsSync(files.indexFile))
     throw new Error('src/index.html does not exists.');
 
-  if (!fs.existsSync(files.gspPath)) fs.mkdirSync(files.gspPath);
+  if (!fs.existsSync(files.projectPath)) fs.mkdirSync(files.projectPath);
   if (!fs.existsSync(files.distPath)) fs.mkdirSync(files.distPath);
   if (!fs.existsSync(files.tmpPath)) fs.mkdirSync(files.tmpPath);
 
   fs.copyFileSync(files.indexFile, files.indexTmpFile);
   if (fs.existsSync(files.bundle)) fs.truncateSync(files.bundle, 0);
 
-  console.log('createFiles End');
+  console.log('createProjectFiles End');
 }
 
-function appendDataFile(file, destinationFile) {
+function appendFileToBundle(file) {
   const line = '\r\n';
   const lineBefore = !file.includes('indexBegin.html') ? line : '';
 
   if (fs.existsSync(file)) {
     const staticData = fs.readFileSync(file, { encoding: 'utf8', flag: 'r' });
 
-    fs.appendFileSync(destinationFile, lineBefore + staticData + line);
+    fs.appendFileSync(files.bundle, lineBefore + staticData + line);
   }
 
   console.log('appendData End');
 }
 
-function filterBundle(files) {
+function filterIndex() {
   console.log('filterIndexData Begin');
   // FILTER HTML DATA
   const indexTmpData = fs
@@ -87,13 +96,9 @@ function filterBundle(files) {
     .split('\r\n');
 
   const ignoredLines = [
-    '.min.js',
-    '.min.css',
-    '.mask.js',
     '<!DOCTYPE html>',
-    'crossorigin="anonymous"',
     'prettier-ignore',
-    'spg-ignore',
+    'data-spg="remove"',
   ];
 
   const indexTmpDataFiltered = indexTmpData.filter(function (line) {
@@ -105,16 +110,24 @@ function filterBundle(files) {
   return indexTmpDataFiltered;
 }
 
-function importCssJs(indexTmpDataFiltered, files) {
-  console.log('importCssJs Begin');
+function processIndexToBundle(indexTmpDataFiltered) {
+  console.log('processIndexToBundle Begin');
   // IMPORT CSS AND JS FILES INTO HTML DATA
   //prettier-ignore
   let firstJsFile = true;
 
-  console.log(indexTmpDataFiltered);
-
   // prettier-ignore
-  const indexTmpDataImported = indexTmpDataFiltered.map(function (line) {                
+  const indexTmpDataImported = indexTmpDataFiltered.map(function (line) {   
+    const bodyCloseTag = '</body>';
+    const htmlCloseTag = '</html>';  
+    
+    // Função de exemplo para replcace, por enquanto não vamos utilizar.
+    if(line.includes('data-spg="replace"')){      
+      // if(line.includes('charset=utf-8')){
+      //   const dataReplaceMetaCharset = fs.readFileSync(files.imports.replace.metaCharset, { encoding: 'utf8', flag: 'r' });
+      //   return dataReplaceMetaCharset;
+      // }
+    }    
 
     if (line.includes('stylesheet') && line.includes('.css')) {
       const cssFile = `${workspaceRootPath}/src/${matchHref(line)}`;
@@ -143,24 +156,37 @@ function importCssJs(indexTmpDataFiltered, files) {
         flag: 'r',
       });
 
-      if (firstJsFile) {
+      if (firstJsFile) {   
+        let dataBeforeScripts;     
         firstJsFile = false;
-        return `<script type="text/javascript">\r\n${jsData}`;
+
+        // IMPORT BEFORE SCRIPTS FILE
+        if (fs.existsSync(files.imports.beforeScriptTags)) {
+          dataBeforeScripts = fs.readFileSync(files.imports.beforeScriptTags, { encoding: 'utf8', flag: 'r' });
+        }        
+        
+        return `\r\n${dataBeforeScripts}<script type="text/javascript">\r\n${jsData}`;
       }
 
       return jsData;
     }
 
-    return line.trim() === '</body>'
-      ? `</script>\r\n</body>`
-      : line;
+    if(line.trim().includes(bodyCloseTag)) return `</script>\r\n${bodyCloseTag}`;
+
+    if(line.trim().includes(htmlCloseTag)) {
+      const dataBeforeHTMLCloseTag = fs.readFileSync(files.imports.beforeHTMLCloseTag, { encoding: 'utf8', flag: 'r' });
+
+      return `\r\n${dataBeforeHTMLCloseTag}\r\n${htmlCloseTag}`;
+    };
+
+    return line;
   });
 
   const indexTmpDataImportedString = indexTmpDataImported.join('\r\n');
 
   fs.appendFileSync(files.bundle, indexTmpDataImportedString);
 
-  console.log('importCssJs End');
+  console.log('processIndexToBundle End');
 }
 
 // Utils.js

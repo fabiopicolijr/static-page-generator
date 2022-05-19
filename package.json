@@ -10,14 +10,14 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:static-page-generator.generateStaticPage"
+    "onCommand:static-page-generator.exportDevelopmentVersion"
   ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "static-page-generator.generateStaticPage",
-        "title": "Generate Static Page"
+        "command": "static-page-generator.exportDevelopmentVersion",
+        "title": "SPG: Export Development Version"
       }
     ]
   },
